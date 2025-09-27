@@ -5,13 +5,13 @@ import type { RootState } from '../store';
 import { 
   setCurrentCandidate, 
   updateCandidateInfo, 
-  startInterview, 
+  startInterviewAsync, 
   setCurrentQuestion,
   startTimer,
   stopTimer,
   updateTimer,
-  submitAnswer,
-  completeInterview,
+  submitAnswerAsync,
+  completeInterviewAsync,
   resetInterview
 } from '../store/slices/interviewSlice';
 import { setLoading, setError } from '../store/slices/uiSlice';
@@ -21,11 +21,11 @@ import { SystemTest } from './SystemTest';
 import type { Candidate, Question, Answer } from '../types';
 
 const QUESTIONS_PER_INTERVIEW = 6;
-const TIME_LIMITS = { easy: 20, medium: 60, hard: 120 };
+const TIME_LIMITS = { easy: 90, medium: 180, hard: 300 };
 
 export const IntervieweeTab: React.FC = () => {
   const dispatch = useDispatch();
-  const { currentCandidate, isInterviewActive, currentQuestion, timeRemaining, isTimerRunning } = useSelector((state: RootState) => state.interview);
+  const { currentCandidate, isInterviewActive, currentQuestion, timeRemaining, isTimerRunning, currentSessionId } = useSelector((state: RootState) => state.interview);
   const { isLoading, error } = useSelector((state: RootState) => state.ui);
   
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -179,7 +179,7 @@ export const IntervieweeTab: React.FC = () => {
     if (!currentCandidate) return;
 
     dispatch(setLoading(true));
-    dispatch(startInterview());
+    dispatch(startInterviewAsync(currentCandidate.id) as any);
 
     try {
       await generateNextQuestion();
@@ -289,7 +289,11 @@ export const IntervieweeTab: React.FC = () => {
         feedback: evaluation.feedback
       };
 
-      dispatch(submitAnswer(answer));
+      dispatch(submitAnswerAsync({ 
+        questionId: currentQuestion.id, 
+        answer, 
+        sessionId: currentSessionId! 
+      }) as any);
       setCurrentAnswer('');
 
       // Generate next question
@@ -312,7 +316,11 @@ export const IntervieweeTab: React.FC = () => {
       const totalScore = currentCandidate.answers.reduce((sum: number, answer: Answer) => sum + answer.score, 0);
       const averageScore = currentCandidate.answers.length > 0 ? totalScore / currentCandidate.answers.length : 0;
 
-      dispatch(completeInterview({ score: averageScore, summary }));
+      dispatch(completeInterviewAsync({ 
+        sessionId: currentSessionId!, 
+        score: averageScore, 
+        summary 
+      }) as any);
       dispatch(setLoading(false));
 
     } catch (err) {

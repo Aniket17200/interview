@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Volume2, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
 
@@ -10,12 +10,10 @@ interface SystemTestProps {
 export const SystemTest: React.FC<SystemTestProps> = ({ onComplete, onBack }) => {
   const [isTestingMic, setIsTestingMic] = useState(false);
   const [isTestingSpeaker, setIsTestingSpeaker] = useState(false);
-  const [isTestingAPI, setIsTestingAPI] = useState(false);
   const [micResult, setMicResult] = useState<'pending' | 'success' | 'failed'>('pending');
   const [speakerResult, setSpeakerResult] = useState<'pending' | 'success' | 'failed'>('pending');
-  const [apiResult, setApiResult] = useState<'pending' | 'success' | 'failed'>('pending');
   const [transcribedText, setTranscribedText] = useState('');
-  const [apiMessage, setApiMessage] = useState('');
+  const continueButtonRef = useRef<HTMLDivElement>(null);
 
   const testMicrophone = async () => {
     setIsTestingMic(true);
@@ -70,37 +68,28 @@ export const SystemTest: React.FC<SystemTestProps> = ({ onComplete, onBack }) =>
     }
   };
 
-  const testGeminiAPI = async () => {
-    setIsTestingAPI(true);
-    setApiResult('pending');
-    setApiMessage('Testing API connection...');
 
-    try {
-      const result = await geminiService.testConnection();
-      if (result.success) {
-        setApiResult('success');
-        setApiMessage(result.message);
-      } else {
-        setApiResult('failed');
-        setApiMessage(result.message);
-      }
-    } catch (error) {
-      setApiResult('failed');
-      setApiMessage(error instanceof Error ? error.message : 'Unknown error');
-    } finally {
-      setIsTestingAPI(false);
-    }
-  };
 
   const stopMicTest = () => {
     geminiService.stopListening();
     setIsTestingMic(false);
   };
 
+  // Scroll to continue button when both tests are completed
+  useEffect(() => {
+    if (micResult === 'success' && speakerResult === 'success') {
+      setTimeout(() => {
+        continueButtonRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }, 500);
+    }
+  }, [micResult, speakerResult]);
+
   const handleContinue = () => {
     const audioSupported = micResult === 'success' && speakerResult === 'success';
-    const apiSupported = apiResult === 'success';
-    console.log('System test results:', { audioSupported, apiSupported });
+    console.log('System test results:', { audioSupported });
     onComplete(audioSupported);
   };
 
@@ -109,7 +98,9 @@ export const SystemTest: React.FC<SystemTestProps> = ({ onComplete, onBack }) =>
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #dbeafe 0%, #ffffff 50%, #e0e7ff 100%)',
       padding: '1.5rem',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      paddingBottom: '3rem',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      overflowY: 'auto'
     }}>
       <div style={{ maxWidth: '48rem', margin: '0 auto' }}>
         {/* Back Button */}
@@ -403,119 +394,17 @@ export const SystemTest: React.FC<SystemTestProps> = ({ onComplete, onBack }) =>
             </div>
           </div>
 
-          {/* Gemini API Test */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '1rem',
-            boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04)',
-            border: '1px solid #dbeafe',
-            overflow: 'hidden'
-          }}>
-            <div style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <div style={{
-                    width: '48px',
-                    height: '48px',
-                    backgroundColor: '#fef3c7',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: '1rem'
-                  }}>
-                    <span style={{ fontSize: '24px' }}>🤖</span>
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', margin: 0 }}>
-                      AI Evaluation Test
-                    </h3>
-                    <p style={{ fontSize: '0.875rem', color: '#4b5563', margin: 0 }}>
-                      Test Gemini AI connection for answer evaluation
-                    </p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  {apiResult === 'success' && <CheckCircle style={{ width: '24px', height: '24px', color: '#22c55e' }} />}
-                  {apiResult === 'failed' && <XCircle style={{ width: '24px', height: '24px', color: '#ef4444' }} />}
-                </div>
-              </div>
 
-              {apiMessage && (
-                <div style={{
-                  marginBottom: '1rem',
-                  padding: '0.75rem',
-                  backgroundColor: apiResult === 'success' ? '#f0fdf4' : apiResult === 'failed' ? '#fef2f2' : '#fef3c7',
-                  border: `1px solid ${apiResult === 'success' ? '#bbf7d0' : apiResult === 'failed' ? '#fecaca' : '#fde68a'}`,
-                  borderRadius: '0.5rem'
-                }}>
-                  <p style={{ 
-                    fontSize: '0.875rem', 
-                    color: apiResult === 'success' ? '#166534' : apiResult === 'failed' ? '#991b1b' : '#92400e',
-                    margin: 0
-                  }}>
-                    <strong>Status:</strong> {apiMessage}
-                  </p>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button
-                  onClick={testGeminiAPI}
-                  disabled={isTestingAPI || apiResult === 'success'}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0.5rem 1rem',
-                    backgroundColor: (isTestingAPI || apiResult === 'success') ? '#9ca3af' : '#f59e0b',
-                    color: 'white',
-                    borderRadius: '0.5rem',
-                    border: 'none',
-                    cursor: (isTestingAPI || apiResult === 'success') ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s ease-in-out',
-                    opacity: (isTestingAPI || apiResult === 'success') ? 0.5 : 1
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isTestingAPI && apiResult !== 'success') {
-                      e.currentTarget.style.backgroundColor = '#d97706';
-                    }
-                  }}
-                  onMouseOut={(e) => {
-                    if (!isTestingAPI && apiResult !== 'success') {
-                      e.currentTarget.style.backgroundColor = '#f59e0b';
-                    }
-                  }}
-                >
-                  <span style={{ marginRight: '0.5rem' }}>🤖</span>
-                  {isTestingAPI ? 'Testing...' : apiResult === 'success' ? 'API Connected' : 'Test AI Connection'}
-                </button>
-              </div>
-
-              {isTestingAPI && (
-                <div style={{
-                  marginTop: '0.75rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  fontSize: '0.875rem',
-                  color: '#f59e0b'
-                }}>
-                  <div style={{
-                    width: '8px',
-                    height: '8px',
-                    backgroundColor: '#f59e0b',
-                    borderRadius: '50%',
-                    animation: 'pulse 2s infinite',
-                    marginRight: '0.5rem'
-                  }}></div>
-                  Testing Gemini AI connection...
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Continue Button */}
-        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+        <div 
+          ref={continueButtonRef}
+          style={{ 
+            marginTop: '3rem', 
+            marginBottom: '2rem',
+            textAlign: 'center'
+          }}>
           <button
             onClick={handleContinue}
             style={{
@@ -544,13 +433,9 @@ export const SystemTest: React.FC<SystemTestProps> = ({ onComplete, onBack }) =>
           </button>
 
           <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.75rem' }}>
-            {micResult === 'success' && speakerResult === 'success' && apiResult === 'success'
-              ? '✓ All systems ready! Full AI-powered interview experience available.'
-              : micResult === 'success' && speakerResult === 'success'
-              ? '⚠️ Audio ready, but AI evaluation may be limited. You can still continue.'
-              : apiResult === 'success'
-              ? '✓ AI evaluation ready. You can continue with text input only.'
-              : '⚠️ Limited functionality available. You can continue with basic features.'
+            {micResult === 'success' && speakerResult === 'success'
+              ? '✓ All audio systems ready! You can proceed with the interview.'
+              : '⚠️ Some audio features may be limited. You can still continue with available functionality.'
             }
           </p>
         </div>

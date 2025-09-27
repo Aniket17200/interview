@@ -975,7 +975,6 @@ Feedback: [Brief feedback]`;
 
   private extractProjectsFromResume(resumeText: string): string[] {
     const projects: string[] = [];
-    const text = resumeText.toLowerCase();
     
     // Common project indicators
     const projectPatterns = [
